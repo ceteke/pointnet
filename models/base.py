@@ -45,6 +45,7 @@ class BasePointNet(nn.Module):
         raise NotImplemented
 
     def fit(self, X_train, y_train, batch_size):
+        self.train()
         X_train, y_train = skshuffle(X_train, y_train)
         X_train_tensor, y_train_tensor = FloatTensor(X_train.tolist()), LongTensor(y_train.tolist())
         for x_batch, y_batch in batchify(X_train_tensor, batch_size, y_train_tensor):
@@ -58,6 +59,7 @@ class BasePointNet(nn.Module):
             self.optimizer.step()
 
     def score(self, X, y, batch_size):
+        self.eval()
         X_train_tensor, y_train_tensor = FloatTensor(X.tolist()), LongTensor(y.tolist())
         correct = 0.0
         for x_batch, y_batch in batchify(X_train_tensor, batch_size, y_train_tensor):

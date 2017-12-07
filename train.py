@@ -11,9 +11,8 @@ X_train, y_train, X_test, y_test = dataset.process()
 
 for e in range(100):
   print('fitting')
-  model.fit(X_train, y_train, 64)
+  model.fit(X_train, y_train, 32)
   print('train acc')
-  model.eval()
   print(model.score(X_train, y_train, 200))
   print('test acc')
   print(model.score(X_test, y_test, 200))
