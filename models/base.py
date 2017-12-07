@@ -10,6 +10,17 @@ class Flatten(nn.Module):
     def forward(self, input):
         return input.view(input.size(0), -1)
 
+class View2d(nn.Module):
+  def __init__(self, num_channel, H, W):
+    nn.Module.__init__(self)
+    self.num_channel = num_channel
+    self.W = W
+    self.H = H
+
+  def forward(self, x):
+    result = x.view(-1, self.num_channel, self.H, self.W)
+    return result
+
 class BasePointNet(nn.Module):
     def __init__(self, n, cuda, device_id):
         '''
