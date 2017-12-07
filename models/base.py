@@ -1,11 +1,17 @@
-from torch import nn
-import torch
-import numpy as np
+from torch import nn, LongTensor, FloatTensor
 from sklearn.utils import shuffle as skshuffle
 from data.utils import batchify
+from torch.autograd import Variable
+
+class Flatten(nn.Module):
+    def __init__(self):
+        nn.Module.__init__(self)
+
+    def forward(self, input):
+        return input.view(input.size(0), -1)
 
 class BasePointNet(nn.Module):
-    def __init__(self, n, dtype, cuda, device_id):
+    def __init__(self, n, cuda, device_id):
         '''
         :param dtype: 1 for (x, y, z) coordinates 2 for (x, y, z, rgb)
         :param cuda: Boolean indicating training device
@@ -13,15 +19,13 @@ class BasePointNet(nn.Module):
         '''
         nn.Module.__init__(self)
 
-        assert dtype in (1, 2), "dtype parameter can be either 1 or 2"
-        self.cuda = cuda
+        self._cuda = cuda
 
-        if self.cuda:
+        if self._cuda:
             self.device_id = 0 if device_id is None else device_id
 
-        self.dtype = dtype
-        self.input_channels = 3 if dtype == 1 else 4
         self.n = n
+        self.optimizer = None
 
     def forward(self, input):
         raise NotImplemented
@@ -29,8 +33,27 @@ class BasePointNet(nn.Module):
     def loss(self, input, target):
         raise NotImplemented
 
-    def set_optimizer(self, optimizer):
-        raise NotImplemented
+    def fit(self, X_train, y_train, batch_size):
+        X_train, y_train = skshuffle(X_train, y_train)
+        X_train_tensor, y_train_tensor = FloatTensor(X_train.tolist()), LongTensor(y_train.tolist())
+        for x_batch, y_batch in batchify(X_train_tensor, batch_size, y_train_tensor):
+            x_b, y_b = Variable(x_batch), Variable(y_batch)
+            if self._cuda:
+                x_b, y_b = x_b.cuda(self.device_id), y_b.cuda(self.device_id)
+            self.optimizer.zero_grad()
+            logits = self(x_b)
+            ce = self.loss(logits, y_b)
+            ce.backward()
+            self.optimizer.step()
 
-    def fit(self, **kwargs):
-        raise NotImplemented
+    def score(self, X, y, batch_size):
+        X_train_tensor, y_train_tensor = FloatTensor(X.tolist()), LongTensor(y.tolist())
+        correct = 0.0
+        for x_batch, y_batch in batchify(X_train_tensor, batch_size, y_train_tensor):
+            x_b, y_b = Variable(x_batch), Variable(y_batch)
+            if self._cuda:
+                x_b, y_b = x_b.cuda(self.device_id), y_b.cuda(self.device_id)
+            output = self(x_b)
+            pred = output.data.max(1, keepdim=True)[1]
+            correct += pred.eq(y_b.data.view_as(pred)).cpu().sum()
+        return correct / len(y)

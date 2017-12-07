@@ -1,15 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+import pickle
+from sklearn import preprocessing
 
-with open('bathtub_0001.off', 'r') as f:
-    points = f.readlines()
+points = pickle.load(open('model10_test.pk', 'rb'))
 
-for i, p in enumerate(points):
-    points[i] = [float(coor) for coor in p.strip().split(' ')]
+points = np.array(points['bathtub'])[0]
+print(points.shape)
 
-points = np.array(points)
-
+with open('test.pcd', 'w') as f:
+  for p in points:
+    f.write('{} {} {}\n'.format(p[0],p[1],p[2]))
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
