@@ -46,6 +46,10 @@ class BasePointNet(nn.Module):
     def loss(self, input, target):
         raise NotImplemented
 
+    def build(self):
+        if self._cuda:
+            self.cuda(self.device_id)
+
     def fit(self, X_train, y_train, batch_size):
         self.train()
         losses = []

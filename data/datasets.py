@@ -37,8 +37,8 @@ class ModelNet(DatasetBase):
         X_test.append(normalize_unit_sphere(d))
       y_test += [label] * len(v)
 
-    X_train = np.array(X_train).reshape((-1, 3, self.n_samples))
-    X_test = np.array(X_test).reshape((-1, 3, self.n_samples))
+    X_train = np.array(X_train).reshape((-1, 1, self.n_samples, 3))
+    X_test = np.array(X_test).reshape((-1, 1, self.n_samples, 3))
     y_train = np.array(y_train)
     y_test = np.array(y_test)
 

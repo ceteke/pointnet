@@ -10,7 +10,7 @@ parser.add_argument('--n_class', type=int, default=10, help='Number of classes [
 parser.add_argument('--epochs', type=int, default=250, help='Epoch to run [default: 250]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 32]')
 parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
-parser.add_argument('--wd', type=float, default=1e-5, help='Weight decay [default: 1e-5]')
+parser.add_argument('--wd', type=float, default=0.0, help='Weight decay [default: 1e-5]')
 parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate [default: 0.3]')
 FLAGS = parser.parse_args()
 
@@ -31,9 +31,9 @@ for e in range(FLAGS.epochs):
   epoch_losses = model.fit(X_train, y_train, FLAGS.batch_size)
   print("\tMean Loss:", np.mean(epoch_losses), flush=True)
   all_losses += epoch_losses
-  tr_acc = model.score(X_train, y_train, 200)
+  tr_acc = model.score(X_train, y_train, 64)
   print("\tTraining Accuracy", tr_acc, flush=True)
-  ts_acc = model.score(X_test, y_test, 200)
+  ts_acc = model.score(X_test, y_test, 64)
   print("\tTest Accuracy", ts_acc, flush=True)
   train_acc.append(tr_acc)
   test_acc.append(ts_acc)
