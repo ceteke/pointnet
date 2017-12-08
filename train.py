@@ -38,3 +38,10 @@ for e in range(FLAGS.epochs):
   train_acc.append(tr_acc)
   test_acc.append(ts_acc)
   print("===========", flush=True)
+
+print("All losses", flush=True)
+print(all_losses, flush=True)
+print("All Train Acc", flush=True)
+print(train_acc, flush=True)
+print("All Test Acc", flush=True)
+print(test_acc, flush=True)
