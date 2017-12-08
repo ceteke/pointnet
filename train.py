@@ -1,18 +1,40 @@
-from models.classification import VanillaPointNetClassifier, PointNetClassifier
+from models.classification import PointNetClassifier
 from data.datasets import ModelNet10
+import argparse
+import numpy as np
 
-model = PointNetClassifier(1024, 10, True)
+parser = argparse.ArgumentParser()
+parser.add_argument('--did', type=int, default=0, help='Device ID')
+parser.add_argument('--n_point', type=int, default=1024, help='Number of points [default: 1024]')
+parser.add_argument('--n_class', type=int, default=10, help='Number of classes [default: 10]')
+parser.add_argument('--epochs', type=int, default=250, help='Epoch to run [default: 250]')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 32]')
+parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
+parser.add_argument('--wd', type=float, default=1e-5, help='Weight decay [default: 1e-5]')
+parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate [default: 0.3]')
+FLAGS = parser.parse_args()
+
+model = PointNetClassifier(n=FLAGS.n_point,lr=FLAGS.lr, wd=FLAGS.wd, dropout=FLAGS.dropout, num_class=FLAGS.n_class,
+                           cuda=True, device_id=FLAGS.did)
 model.build()
 
 print("Reading dataset")
-dataset = ModelNet10('model10_train.pk', 'model10_test.pk', 1024)
+dataset = ModelNet10('model10_train.pk', 'model10_test.pk', FLAGS.n_point)
 
 X_train, y_train, X_test, y_test = dataset.process()
 
-for e in range(100):
-  print('fitting')
-  model.fit(X_train, y_train, 32)
-  print('train acc')
-  print(model.score(X_train, y_train, 200))
-  print('test acc')
-  print(model.score(X_test, y_test, 200))
+all_losses = []
+train_acc = []
+test_acc = []
+for e in range(FLAGS.epochs):
+  print("Epoch 1:")
+  epoch_losses = model.fit(X_train, y_train, FLAGS.batch_size)
+  print("\tMean Loss:", np.mean(epoch_losses))
+  all_losses += epoch_losses
+  tr_acc = model.score(X_train, y_train, 200)
+  print("\tTraining Accuracy", tr_acc)
+  ts_acc = model.score(X_test, y_test, 200)
+  print("\tTest Accuracy", ts_acc)
+  train_acc.append(tr_acc)
+  test_acc.append(ts_acc)
+  print("===========")

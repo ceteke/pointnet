@@ -22,7 +22,7 @@ class View2d(nn.Module):
     return result
 
 class BasePointNet(nn.Module):
-    def __init__(self, n, cuda, device_id):
+    def __init__(self, n, lr, wd, cuda, device_id):
         '''
         :param dtype: 1 for (x, y, z) coordinates 2 for (x, y, z, rgb)
         :param cuda: Boolean indicating training device
@@ -31,6 +31,8 @@ class BasePointNet(nn.Module):
         nn.Module.__init__(self)
 
         self._cuda = cuda
+        self.lr = lr
+        self.wd = wd
 
         if self._cuda:
             self.device_id = 0 if device_id is None else device_id
@@ -46,6 +48,7 @@ class BasePointNet(nn.Module):
 
     def fit(self, X_train, y_train, batch_size):
         self.train()
+        losses = []
         X_train, y_train = skshuffle(X_train, y_train)
         X_train_tensor, y_train_tensor = FloatTensor(X_train.tolist()), LongTensor(y_train.tolist())
         for x_batch, y_batch in batchify(X_train_tensor, batch_size, y_train_tensor):
@@ -55,9 +58,10 @@ class BasePointNet(nn.Module):
             self.optimizer.zero_grad()
             logits = self(x_b)
             ce = self.loss(logits, y_b)
+            losses.append(ce.data[0])
             ce.backward()
             self.optimizer.step()
-
+        return losses
     def score(self, X, y, batch_size):
         self.eval()
         X_train_tensor, y_train_tensor = FloatTensor(X.tolist()), LongTensor(y.tolist())

@@ -40,11 +40,10 @@ class VanillaPointNetClassifier(BasePointNet):
         return self.net(input)
 
 class PointNetClassifier(BasePointNet):
-    def __init__(self, n, num_class, cuda, device_id=None):
-        BasePointNet.__init__(self, n, cuda, device_id)
+    def __init__(self, n, lr, wd, dropout, num_class, cuda, device_id=None):
+        BasePointNet.__init__(self, n, lr, wd, cuda, device_id)
         self.num_class = num_class
         self.net = nn.Sequential(
-            TransormationNet(3, 1024, True, self.device_id),
             nn.Conv1d(3, 64, 1),
             nn.ReLU(True),
             nn.Conv1d(64, 64, 1),
@@ -55,6 +54,7 @@ class PointNetClassifier(BasePointNet):
             nn.ReLU(True),
             nn.MaxPool1d(self.n, 1),
             Flatten(),
+            nn.Dropout(dropout),
             nn.Linear(1024, 512),
             nn.ReLU(True),
             nn.Linear(512, 256),
@@ -63,7 +63,7 @@ class PointNetClassifier(BasePointNet):
             nn.LogSoftmax()
         )
 
-        self.optimizer = optim.Adam(self.parameters())
+        self.optimizer = optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.wd)
 
     def build(self):
         if self._cuda:
