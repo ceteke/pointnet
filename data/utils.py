@@ -5,7 +5,8 @@ def batchify(X, batch_size, y=None):
     for ndx in range(0, l, batch_size):
         if y is None:
             yield X[ndx:min(ndx + batch_size, l)]
-        yield X[ndx:min(ndx + batch_size, l)], y[ndx:min(ndx + batch_size, l)]
+        else:
+            yield X[ndx:min(ndx + batch_size, l)], y[ndx:min(ndx + batch_size, l)]
 
 """
 Below 3 methods are taken from the original implementation of the PointNet

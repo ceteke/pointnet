@@ -1,4 +1,5 @@
 from models.classification import PointNetClassifier
+from models.unsupervised import VanillaPointVAE
 from data.datasets import ModelNet10
 import argparse
 import numpy as np
@@ -14,8 +15,9 @@ parser.add_argument('--wd', type=float, default=0.0, help='Weight decay [default
 parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate [default: 0.3]')
 FLAGS = parser.parse_args()
 
-model = PointNetClassifier(n=FLAGS.n_point,lr=FLAGS.lr, wd=FLAGS.wd, lambd=0.001, dropout=FLAGS.dropout, num_class=FLAGS.n_class,
-                           cuda=True, device_id=FLAGS.did)
+#model = PointNetClassifier(n=FLAGS.n_point,lr=FLAGS.lr, wd=FLAGS.wd, lambd=0.001, dropout=FLAGS.dropout, num_class=FLAGS.n_class,
+#                           cuda=True, device_id=FLAGS.did)
+model = VanillaPointVAE()
 model.build()
 
 print("Reading dataset")
@@ -28,12 +30,12 @@ train_acc = []
 test_acc = []
 for e in range(FLAGS.epochs):
   print("Epoch {}:".format(e+1), flush=True)
-  epoch_losses = model.fit(X_train, y_train, FLAGS.batch_size)
+  epoch_losses = model.fit(X_train, FLAGS.batch_size)
   print("\tMean Loss:", np.mean(epoch_losses), flush=True)
   all_losses += epoch_losses
-  tr_acc = model.score(X_train, y_train, 64)
+  tr_acc = model.score(X_train, 64)
   print("\tTraining Accuracy", tr_acc, flush=True)
-  ts_acc = model.score(X_test, y_test, 64)
+  ts_acc = model.score(X_test, 64)
   print("\tTest Accuracy", ts_acc, flush=True)
   train_acc.append(tr_acc)
   test_acc.append(ts_acc)

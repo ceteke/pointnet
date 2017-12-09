@@ -75,7 +75,7 @@ class PointNetClassifier(BasePointNet):
 
     def loss(self, input, target):
         feature_transform_matrix = self.net[7].t_out
-        eye = torch.autograd.Variable(torch.eye(64))
+        eye = torch.autograd.Variable(torch.eye(64)) # requires_grad=False by default
         if self._cuda:
             eye = eye.cuda(self.device_id)
         transfer_reg = self.lamd * torch.sum(
