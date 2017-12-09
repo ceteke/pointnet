@@ -23,10 +23,10 @@ class TransormationNet(nn.Module):
       nn.MaxPool2d((self.n, 1), 1),
       Flatten(),
       nn.Linear(self.n, 512),
-      nn.BatchNorm2d(512),
+      nn.BatchNorm1d(512),
       nn.ReLU(True),
       nn.Linear(512, 256),
-      nn.BatchNorm2d(256),
+      nn.BatchNorm1d(256),
       nn.ReLU(True),
       nn.Linear(256, K**2),
     )
