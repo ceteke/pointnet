@@ -68,7 +68,8 @@ class PointNetClassifier(BasePointNet):
             nn.LogSoftmax()
         )
 
-        self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(self.parameters(), weight_decay=self.wd)
+        self.scheduler = StepLR(self.optimizer, 20, 0.5)
 
     def loss(self, input, target):
         return F.nll_loss(input, target)

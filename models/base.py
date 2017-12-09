@@ -1,6 +1,6 @@
 from torch import nn, LongTensor, FloatTensor
 from sklearn.utils import shuffle as skshuffle
-from data.utils import batchify
+from data.utils import batchify, rotate_point_cloud, jitter_point_cloud
 from torch.autograd import Variable
 
 class Flatten(nn.Module):
@@ -39,6 +39,7 @@ class BasePointNet(nn.Module):
 
         self.n = n
         self.optimizer = None
+        self.scheduler = None
 
     def forward(self, input):
         raise NotImplemented
@@ -52,8 +53,13 @@ class BasePointNet(nn.Module):
 
     def fit(self, X_train, y_train, batch_size):
         self.train()
+        if self. scheduler is not None:
+            self.scheduler.step()
         losses = []
         X_train, y_train = skshuffle(X_train, y_train)
+        X_train = rotate_point_cloud(X_train)
+        X_train = jitter_point_cloud(X_train)
+        X_train = X_train.reshape((-1, 1, self.n, 3))
         X_train_tensor, y_train_tensor = FloatTensor(X_train.tolist()), LongTensor(y_train.tolist())
         for x_batch, y_batch in batchify(X_train_tensor, batch_size, y_train_tensor):
             x_b, y_b = Variable(x_batch), Variable(y_batch)
@@ -68,9 +74,10 @@ class BasePointNet(nn.Module):
         return losses
     def score(self, X, y, batch_size):
         self.eval()
-        X_train_tensor, y_train_tensor = FloatTensor(X.tolist()), LongTensor(y.tolist())
+        X = X.reshape(-1, 1, self.n, 3)
+        X_tensor, y_tensor = FloatTensor(X.tolist()), LongTensor(y.tolist())
         correct = 0.0
-        for x_batch, y_batch in batchify(X_train_tensor, batch_size, y_train_tensor):
+        for x_batch, y_batch in batchify(X_tensor, batch_size, y_tensor):
             x_b, y_b = Variable(x_batch), Variable(y_batch)
             if self._cuda:
                 x_b, y_b = x_b.cuda(self.device_id), y_b.cuda(self.device_id)

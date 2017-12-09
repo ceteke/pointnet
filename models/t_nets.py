@@ -1,6 +1,7 @@
 from torch import nn, matmul
 from .base import Flatten
 import torch
+import numpy as np
 
 class TransormationNet(nn.Module):
   def __init__(self, K, n, channels):
@@ -29,14 +30,16 @@ class TransormationNet(nn.Module):
       nn.ReLU(True),
       nn.Linear(256, K**2),
     )
+    self.net[-1].weight.data.fill_(0)
+    self.net[-1].bias.data = torch.FloatTensor(np.identity(self.K).flatten())
 
   def forward(self, input):
-    t_out = self.net(input).view(-1,self.K,self.K)
+    t_out = self.net(input).view(-1, self.K, self.K)
     input = torch.squeeze(input)
     if self.channels != 1:
       input = torch.transpose(input, 1, 2)
     result = matmul(input, t_out)
     if self.channels != 1:
       result = torch.transpose(result, 2, 1).contiguous()
-      return result.view(-1,self.channels,self.n,1)
-    return result.view(-1,1,self.n,3)
+      return result.view(-1, self.channels, self.n, 1)
+    return result.view(-1, 1, self.n, 3)
