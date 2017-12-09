@@ -34,11 +34,11 @@ class TransormationNet(nn.Module):
     self.net[-1].bias.data = torch.FloatTensor(np.identity(self.K).flatten())
 
   def forward(self, input):
-    t_out = self.net(input).view(-1, self.K, self.K)
+    self.t_out = self.net(input).view(-1, self.K, self.K)
     input = torch.squeeze(input)
     if self.channels != 1:
       input = torch.transpose(input, 1, 2)
-    result = matmul(input, t_out)
+    result = matmul(input, self.t_out)
     if self.channels != 1:
       result = torch.transpose(result, 2, 1).contiguous()
       return result.view(-1, self.channels, self.n, 1)

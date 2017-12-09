@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from .base import BasePointNet, Flatten, View2d
 from .t_nets import TransormationNet
 from torch.optim.lr_scheduler import StepLR
+import torch
 
 class VanillaPointNetClassifier(BasePointNet):
     def __init__(self, n, num_class, cuda, device_id=None):
@@ -37,9 +38,10 @@ class VanillaPointNetClassifier(BasePointNet):
         return self.net(input)
 
 class PointNetClassifier(BasePointNet):
-    def __init__(self, n, lr, wd, dropout, num_class, cuda, device_id=None):
+    def __init__(self, n, lr, wd, dropout, lambd, num_class, cuda, device_id=None):
         BasePointNet.__init__(self, n, lr, wd, cuda, device_id)
         self.num_class = num_class
+        self.lamd = lambd
         self.net = nn.Sequential(
             TransormationNet(3, self.n, 1),
             nn.Conv2d(1, 64, (1, 3)),
@@ -68,11 +70,20 @@ class PointNetClassifier(BasePointNet):
             nn.LogSoftmax()
         )
 
-        self.optimizer = optim.Adam(self.parameters(), weight_decay=self.wd)
+        self.optimizer = optim.Adam(self.parameters())
         self.scheduler = StepLR(self.optimizer, 20, 0.5)
 
     def loss(self, input, target):
-        return F.nll_loss(input, target)
+        feature_transform_matrix = self.net[7].t_out
+        eye = torch.autograd.Variable(torch.eye(64))
+        if self._cuda:
+            eye = eye.cuda(self.device_id)
+        transfer_reg = self.lamd * torch.sum(
+            torch.pow(
+                torch.norm(
+                    eye.sub(torch.matmul(feature_transform_matrix, torch.transpose(feature_transform_matrix,1,2))) + 1e-8
+                ), 2))
+        return F.nll_loss(input, target) + transfer_reg
 
     def forward(self, input):
         return self.net(input)

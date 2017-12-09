@@ -14,7 +14,7 @@ parser.add_argument('--wd', type=float, default=0.0, help='Weight decay [default
 parser.add_argument('--dropout', type=float, default=0.3, help='Dropout rate [default: 0.3]')
 FLAGS = parser.parse_args()
 
-model = PointNetClassifier(n=FLAGS.n_point,lr=FLAGS.lr, wd=FLAGS.wd, dropout=FLAGS.dropout, num_class=FLAGS.n_class,
+model = PointNetClassifier(n=FLAGS.n_point,lr=FLAGS.lr, wd=FLAGS.wd, lambd=0.001, dropout=FLAGS.dropout, num_class=FLAGS.n_class,
                            cuda=True, device_id=FLAGS.did)
 model.build()
 
