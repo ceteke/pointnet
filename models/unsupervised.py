@@ -1,119 +1,97 @@
 from torch import nn
 import torch
-from torch.nn import functional as F
 from data.utils import batchify
 from torch.autograd import Variable
-from torch import LongTensor, FloatTensor
+from torch import FloatTensor
 from sklearn.utils import shuffle as skshuffle
+from torch.optim.lr_scheduler import StepLR
 
-class VanillaPointVAE(nn.Module):
-  def __init__(self):
+class VanillaPointAE(nn.Module):
+  def __init__(self, n):
     nn.Module.__init__(self)
-    self.conv1 = nn.Conv2d(1, 64, (1, 3))
-    self.conv2 = nn.Conv2d(64, 64, 1)
-    self.conv3 = nn.Conv2d(64, 128, 1)
-    self.conv4 = nn.Conv2d(128, 1024, 1)
+    self.n = n
+    self.encoder = nn.Sequential(
+      nn.Conv1d(3, 128, 1),
+      nn.ReLU(),
+      nn.BatchNorm1d(128),
+      nn.Conv1d(128, 128, 1),
+      nn.ReLU(),
+      nn.BatchNorm1d(128),
+      nn.Conv1d(128, 256, 1),
+      nn.ReLU(),
+      nn.BatchNorm1d(256),
+      nn.Conv1d(256, 512, 1),
+      nn.ReLU(),
+      nn.BatchNorm1d(512),
+      nn.MaxPool1d(self.n, 1),
+    )
 
-    self.pool = nn.MaxPool2d((1024, 1), 1, return_indices=True)
+    self.decoder = nn.Sequential(
+      nn.Linear(512, self.n),
+      nn.ReLU(),
+      nn.BatchNorm1d(self.n),
+      nn.Linear(self.n, 2048),
+      nn.ReLU(),
+      nn.BatchNorm1d(2048),
+      nn.Linear(2048, self.n * 3),
+    )
 
-    self.fc11 = nn.Linear(1024, 100)
-    self.fc12 = nn.Linear(1024, 100)
-    self.fc2 = nn.Linear(100, 1024)
-
-    self.unpool = nn.MaxUnpool2d((1024, 1), 1)
-
-    self.convt1 = nn.ConvTranspose2d(1024, 128, 1)
-    self.convt2 = nn.ConvTranspose2d(128, 64, 1)
-    self.convt3 = nn.ConvTranspose2d(64, 64, 1)
-    self.convt4 = nn.ConvTranspose2d(64, 1, (1, 3))
-
-    self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
-    self.scheduler = None
+    self.optimizer = torch.optim.Adam(self.parameters(), lr=0.01)
+    self.scheduler = StepLR(self.optimizer, 20, 0.5)
     self._cuda = True
     self.device_id = 0
 
   def build(self):
     self.cuda()
 
-  def go_up(self, layer, rec, skip, activation=True):
-    reconstruction = skip + rec
-    reconstruction = layer(reconstruction)
-    if activation:
-      return F.relu(reconstruction)
-    return reconstruction
-
-  def loss(self, reconstructed, input, mu, sgm):
-    rec_loss = F.mse_loss(reconstructed, input, size_average=False)
-    kl_div = -0.5 * torch.sum(1 + torch.log(sgm.pow(2)) - mu.pow(2) - sgm.pow(2))
-    return rec_loss + kl_div
+  def loss(self, reconstructed, input):
+    return torch.sqrt(torch.sum(torch.pow(input-reconstructed, 2)))
 
   def forward(self, x):
-    x = self.conv1(x)
-    x = F.relu(x)
-    x_skip1 = x
-    x = self.conv2(x)
-    x = F.relu(x)
-    x_skip2 = x
-    x = self.conv3(x)
-    x = F.relu(x)
-    x_skip3 = x
-    x = self.conv4(x)
-    x = F.relu(x)
-    x_skip4 = x
+    latent = torch.squeeze(self.encoder(x))
+    reconstructed = self.decoder(latent)
+    return reconstructed.view(-1, 3, self.n)
 
-    pooled, pool_idx = self.pool(x)
-    pooled = pooled.view(pooled.size(0), -1) # Flatten
-
-    mu = self.fc11(pooled)
-    log_sgm_sq = self.fc12(pooled)
-
-    sgm = torch.exp(0.5 * log_sgm_sq)
-    eps = torch.autograd.Variable(sgm.data.new(sgm.size()).normal_())
-
-    latent = mu + sgm * eps
-
-    latent = self.fc2(latent)
-    latent = F.relu(latent)
-    latent = latent.view(-1,1024,1,1)
-
-    reconstruction = self.unpool(latent, pool_idx)
-
-    reconstruction = self.go_up(self.convt1, reconstruction, x_skip4)
-    reconstruction = self.go_up(self.convt2, reconstruction, x_skip3)
-    reconstruction = self.go_up(self.convt3, reconstruction, x_skip2)
-    reconstruction = self.go_up(self.convt4, reconstruction, x_skip1, activation=False)
-
-    return reconstruction, mu, sgm
+  def get_representation(self, X, batch_size):
+    self.eval()
+    representation_batches = []
+    X_tensor = FloatTensor(X.tolist())
+    for data in batchify(X_tensor, batch_size):
+      x_b = torch.autograd.Variable(data, volatile=True)
+      if self._cuda:
+        x_b = x_b.cuda(self.device_id)
+      rep = self.encoder(x_b)
+      representation_batches.append(rep)
+    representation = torch.squeeze(torch.cat(representation_batches))
+    return representation.cpu().data
 
   def fit(self, X_train, batch_size):
     self.train()
     if self. scheduler is not None:
       self.scheduler.step()
-    losses = []
+    losses = 0
     X_train = skshuffle(X_train)
-    X_train = X_train.reshape((-1, 1, 1024, 3))
     X_train_tensor = FloatTensor(X_train.tolist())
     for x_batch in batchify(X_train_tensor, batch_size):
       x_b = Variable(x_batch)
       if self._cuda:
         x_b = x_b.cuda(self.device_id)
       self.optimizer.zero_grad()
-      logits, mu, sigma = self(x_b)
-      ce = self.loss(logits, x_b, mu, sigma)
-      losses.append(ce.data[0])
+      recons = self(x_b)
+      ce = self.loss(recons, x_b)
       ce.backward()
+      losses += ce.data[0]
       self.optimizer.step()
-    return losses
+    return losses / len(X_train)
 
   def score(self, X, batch_size):
     self.eval()
-    X = X.reshape(-1, 1, 1024, 3)
     X_tensor = FloatTensor(X.tolist())
     total_loss = 0.0
     for x_batch in batchify(X_tensor, batch_size):
       x_b = Variable(x_batch)
       if self._cuda:
         x_b = x_b.cuda(self.device_id)
-      output, mu, sigma = self(x_b)
-      total_loss += self.loss(output, x_b, mu, sigma)
+      output = self(x_b)
+      total_loss += self.loss(output, x_b).data[0]
     return total_loss / len(X)
